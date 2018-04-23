@@ -10,6 +10,13 @@ resource "aws_security_group" "swarm" {
     description = "SSH"
   }
   ingress {
+    from_port = 2375
+    protocol = "tcp"
+    to_port = 2375
+    self = true
+    description = "Insecure Docker port"
+  }
+  ingress {
     from_port = 2377
     protocol = "tcp"
     to_port = 2377
@@ -20,28 +27,28 @@ resource "aws_security_group" "swarm" {
     from_port = 4789
     protocol = "udp"
     to_port = 4789
-    security_groups = ["${aws_security_group.swarm.id}"]
+    self = true
     description = "Overlay network traffic"
   }
   ingress {
     from_port = 7946
     protocol = "udp"
     to_port = 7946
-    security_groups = ["${aws_security_group.swarm.id}"]
+    self = true
     description = "Inter-node communication"
   }
   ingress {
     from_port = 7946
     protocol = "tcp"
     to_port = 7946
-    security_groups = ["${aws_security_group.swarm.id}"]
+    self = true
     description = "Inter-node communication"
   }
   ingress {
     from_port = 0
     protocol = "50"
     to_port = 0
-    security_groups = ["${aws_security_group.swarm.id}"]
+    self = true
     description = "Encrypted traffic (--opt encrypted)"
   }
   egress {
