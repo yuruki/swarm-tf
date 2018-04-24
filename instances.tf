@@ -50,19 +50,19 @@ resource "aws_instance" "manager" {
     destination = "/opt/docker-tls/ca.pem"
   }
   provisioner "file" {
-    source = "client-cert.pem"
+    content = "${tls_locally_signed_cert.client.cert_pem}"
     destination = "/opt/docker-tls/client-cert.pem"
   }
   provisioner "file" {
-    source = "client-key.pem"
+    content = "${tls_private_key.client.private_key_pem}"
     destination = "/opt/docker-tls/client-key.pem"
   }
   provisioner "file" {
-    source = "manager-cert.pem"
+    content = "${tls_locally_signed_cert.manager.cert_pem}"
     destination = "/opt/docker-tls/manager-cert.pem"
   }
   provisioner "file" {
-    source = "manager-key.pem"
+    content = "${tls_private_key.manager.private_key_pem}"
     destination = "/opt/docker-tls/manager-key.pem"
   }
   provisioner "remote-exec" {
@@ -114,11 +114,11 @@ resource "aws_instance" "worker" {
     destination = "/opt/docker-tls/ca.pem"
   }
   provisioner "file" {
-    source = "client-cert.pem"
+    content = "${tls_locally_signed_cert.client.cert_pem}"
     destination = "/opt/docker-tls/client-cert.pem"
   }
   provisioner "file" {
-    source = "client-key.pem"
+    content = "${tls_private_key.client.private_key_pem}"
     destination = "/opt/docker-tls/client-key.pem"
   }
   provisioner "remote-exec" {
