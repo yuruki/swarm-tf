@@ -10,11 +10,11 @@ resource "aws_security_group" "swarm" {
     description = "SSH"
   }
   ingress {
-    from_port = 2375
+    from_port = 2376
     protocol = "tcp"
-    to_port = 2375
-    self = true
-    description = "Insecure Docker port"
+    to_port = 2376
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "TLS Docker daemon port"
   }
   ingress {
     from_port = 2377

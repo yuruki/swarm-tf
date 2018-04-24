@@ -30,22 +30,47 @@ resource "aws_instance" "manager" {
   iam_instance_profile = "${aws_iam_instance_profile.rexray_efs_profile.id}"
   lifecycle {
     ignore_changes = [
-      "user_data", // allow creating new nodes with configuration changes without removing existing ones
+//      "user_data", // allow creating new nodes with configuration changes without removing existing ones
       "ami"
     ]
   }
+  connection {
+    type = "ssh"
+    user = "root"
+    timeout = "120s"
+    private_key = "${tls_private_key.provisioning.private_key_pem}"
+  }
   provisioner "remote-exec" {
     inline = [
-      "${count.index == 0 ? format("docker swarm init --advertise-addr %s", aws_instance.manager.0.public_ip) : format("docker swarm join --token $(docker -H %s:2375 swarm join-token -q manager) %s:2377", aws_instance.manager.0.private_ip, aws_instance.manager.0.public_ip)}",
+      "mkdir -p /opt/docker-tls"
+    ]
+  }
+  provisioner "file" {
+    source = "ca.pem"
+    destination = "/opt/docker-tls/ca.pem"
+  }
+  provisioner "file" {
+    source = "client-cert.pem"
+    destination = "/opt/docker-tls/client-cert.pem"
+  }
+  provisioner "file" {
+    source = "client-key.pem"
+    destination = "/opt/docker-tls/client-key.pem"
+  }
+  provisioner "file" {
+    source = "manager-cert.pem"
+    destination = "/opt/docker-tls/manager-cert.pem"
+  }
+  provisioner "file" {
+    source = "manager-key.pem"
+    destination = "/opt/docker-tls/manager-key.pem"
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "${count.index == 0 ? format("docker swarm init --advertise-addr %s", aws_eip.manager.0.public_ip) : format("docker swarm join --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H %s:2376 swarm join-token -q manager) %s:2377", aws_eip.manager.0.public_ip, aws_eip.manager.0.public_ip)}",
       "update-ssh-keys -u root -d core-ignition || /bin/true",
       "rm /root/.ssh/authorized_keys"
     ]
-    connection {
-      type = "ssh"
-      user = "root"
-      timeout = "120s"
-      private_key = "${tls_private_key.provisioning_key.private_key_pem}"
-    }
   }
   tags {
     Name = "manager-${count.index}"
@@ -68,24 +93,41 @@ resource "aws_instance" "worker" {
   associate_public_ip_address = true
   lifecycle {
     ignore_changes = [
-      "user_data", // allow creating new nodes with configuration changes without removing existing ones
+//      "user_data", // allow creating new nodes with configuration changes without removing existing ones
       "ami"
     ]
+  }
+  connection {
+    type = "ssh"
+    user = "root"
+    timeout = "120s"
+    private_key = "${tls_private_key.provisioning.private_key_pem}"
+    //      bastion_host = "${aws_eip.manager.0.public_ip}"
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "mkdir -p /opt/docker-tls"
+    ]
+  }
+  provisioner "file" {
+    source = "ca.pem"
+    destination = "/opt/docker-tls/ca.pem"
+  }
+  provisioner "file" {
+    source = "client-cert.pem"
+    destination = "/opt/docker-tls/client-cert.pem"
+  }
+  provisioner "file" {
+    source = "client-key.pem"
+    destination = "/opt/docker-tls/client-key.pem"
   }
   provisioner "remote-exec" {
     inline = [
       "docker plugin install --alias efs --grant-all-permissions rexray/efs EFS_SECURITYGROUPS='${aws_security_group.efs.id}'",
-      "docker swarm join --token $(docker -H ${aws_instance.manager.0.private_ip}:2375 swarm join-token -q worker) ${aws_instance.manager.0.public_ip}:2377",
+      "docker swarm join --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H ${aws_eip.manager.0.public_ip}:2376 swarm join-token -q worker) ${aws_eip.manager.0.public_ip}:2377",
       "update-ssh-keys -u root -d core-ignition || /bin/true",
       "rm /root/.ssh/authorized_keys"
     ]
-    connection {
-      type = "ssh"
-      user = "root"
-      timeout = "120s"
-      private_key = "${tls_private_key.provisioning_key.private_key_pem}"
-//      bastion_host = "${aws_eip.manager.0.public_ip}"
-    }
   }
   tags {
     Name = "worker-${count.index}"

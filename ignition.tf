@@ -1,6 +1,6 @@
 data "ignition_user" "root" {
   name = "root"
-  ssh_authorized_keys = ["${tls_private_key.provisioning_key.public_key_openssh}"]
+  ssh_authorized_keys = ["${tls_private_key.provisioning.public_key_openssh}"]
 }
 
 data "ignition_user" "core" {
@@ -36,7 +36,7 @@ data "ignition_file" "docker_swarm_dropin" {
   content {
     content = <<EOF
 [Service]
-Environment='DOCKER_OPTS=-H unix:///var/run/docker.sock -H tcp://0.0.0.0:2375'
+Environment='DOCKER_OPTS=-H unix:///var/run/docker.sock -H tcp://0.0.0.0:2376 --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/manager-cert.pem --tlskey=/opt/docker-tls/manager-key.pem'
 EOF
   }
 }
