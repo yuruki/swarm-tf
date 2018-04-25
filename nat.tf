@@ -1,9 +1,9 @@
-/*
 resource "aws_subnet" "nat" {
   count = "${length(var.aws_availability_zones)}"
   vpc_id = "${aws_vpc.swarm.id}"
   cidr_block = "10.0.${count.index * 2 + 1}.0/24" // private subnets = odd
   availability_zone = "${var.aws_availability_zones[count.index]}"
+  map_public_ip_on_launch = false
   tags {
     Name = "private ${count.index + 1}"
   }
@@ -52,4 +52,3 @@ resource "aws_route_table_association" "private_subnet_association" {
   subnet_id = "${aws_subnet.nat.*.id[count.index]}"
   route_table_id = "${aws_route_table.private_route_table.*.id[count.index]}"
 }
-*/

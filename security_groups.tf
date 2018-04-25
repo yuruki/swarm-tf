@@ -20,7 +20,7 @@ resource "aws_security_group" "swarm" {
     from_port = 2377
     protocol = "tcp"
     to_port = 2377
-    cidr_blocks = ["0.0.0.0/0"]
+    self = true
     description = "Cluster management"
   }
   ingress {

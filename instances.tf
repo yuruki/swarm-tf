@@ -67,9 +67,7 @@ resource "aws_instance" "manager" {
   }
   provisioner "remote-exec" {
     inline = [
-      "${count.index == 0 ? format("docker swarm init --advertise-addr %s", aws_eip.manager.0.public_ip) : format("docker swarm join --advertise-addr %s --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H %s:2376 swarm join-token -q manager) %s:2377", aws_eip.manager.*.public_ip[count.index], aws_eip.manager.0.public_ip, aws_eip.manager.0.public_ip)}",
-      "update-ssh-keys -u root -d core-ignition || /bin/true",
-      "rm /root/.ssh/authorized_keys"
+      "${count.index == 0 ? format("docker swarm init --advertise-addr eth0") : format("docker swarm join --advertise-addr eth0 --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H %s:2376 swarm join-token -q manager) %s:2377", aws_instance.manager.0.private_ip, aws_instance.manager.0.private_ip)}"
     ]
   }
   tags {
@@ -80,17 +78,16 @@ resource "aws_instance" "manager" {
 resource "aws_instance" "worker" {
   count = "${var.worker_count}"
   ami = "${data.aws_ami.coreos.id}"
-  availability_zone = "${element(aws_subnet.public.*.availability_zone, count.index)}"
+  availability_zone = "${element(aws_subnet.nat.*.availability_zone, count.index)}"
   instance_type = "${var.instance_type}"
   vpc_security_group_ids = [
     "${aws_security_group.efs.id}", // workaround for rexray driver behavior
     "${aws_security_group.swarm.id}"
   ]
-  subnet_id = "${element(aws_subnet.public.*.id, count.index)}"
+  subnet_id = "${element(aws_subnet.nat.*.id, count.index)}"
   user_data = "${data.ignition_config.worker_ignition_config.*.rendered[count.index]}"
   source_dest_check = false
   iam_instance_profile = "${aws_iam_instance_profile.rexray_efs_profile.id}"
-  associate_public_ip_address = true
   lifecycle {
     ignore_changes = [
 //      "user_data", // allow creating new nodes with configuration changes without removing existing ones
@@ -102,7 +99,7 @@ resource "aws_instance" "worker" {
     user = "root"
     timeout = "120s"
     private_key = "${tls_private_key.provisioning.private_key_pem}"
-    //      bastion_host = "${aws_eip.manager.0.public_ip}"
+    bastion_host = "${aws_eip.manager.0.public_ip}"
   }
   provisioner "remote-exec" {
     inline = [
@@ -124,12 +121,30 @@ resource "aws_instance" "worker" {
   provisioner "remote-exec" {
     inline = [
       "docker plugin install --alias efs --grant-all-permissions rexray/efs EFS_SECURITYGROUPS='${aws_security_group.efs.id}'",
-      "docker swarm join --advertise-addr ${aws_instance.worker.*.private_ip} --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H ${aws_eip.manager.0.public_ip}:2376 swarm join-token -q worker) ${aws_eip.manager.0.public_ip}:2377",
+      "docker swarm join --advertise-addr eth0 --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H ${aws_eip.manager.0.public_ip}:2376 swarm join-token -q worker) ${aws_instance.manager.0.private_ip}:2377",
       "update-ssh-keys -u root -d core-ignition || /bin/true",
       "rm /root/.ssh/authorized_keys"
     ]
   }
   tags {
     Name = "worker-${count.index}"
+  }
+}
+
+resource "null_resource" "remove_provisioning_keys" {
+  count = "${var.manager_count}"
+  depends_on = ["aws_instance.worker"]
+  provisioner "remote-exec" {
+    connection {
+      type = "ssh"
+      user = "root"
+      timeout = "120s"
+      private_key = "${tls_private_key.provisioning.private_key_pem}"
+      host = "${aws_eip.manager.*.public_ip[count.index]}"
+    }
+    inline = [
+      "update-ssh-keys -u root -d core-ignition || /bin/true",
+      "rm /root/.ssh/authorized_keys"
+    ]
   }
 }
