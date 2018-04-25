@@ -67,7 +67,7 @@ resource "aws_instance" "manager" {
   }
   provisioner "remote-exec" {
     inline = [
-      "${count.index == 0 ? format("docker swarm init --advertise-addr %s", aws_eip.manager.0.public_ip) : format("docker swarm join --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H %s:2376 swarm join-token -q manager) %s:2377", aws_eip.manager.0.public_ip, aws_eip.manager.0.public_ip)}",
+      "${count.index == 0 ? format("docker swarm init --advertise-addr %s", aws_eip.manager.0.public_ip) : format("docker swarm join --advertise-addr %s --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H %s:2376 swarm join-token -q manager) %s:2377", aws_eip.manager.*.public_ip[count.index], aws_eip.manager.0.public_ip, aws_eip.manager.0.public_ip)}",
       "update-ssh-keys -u root -d core-ignition || /bin/true",
       "rm /root/.ssh/authorized_keys"
     ]
@@ -124,7 +124,7 @@ resource "aws_instance" "worker" {
   provisioner "remote-exec" {
     inline = [
       "docker plugin install --alias efs --grant-all-permissions rexray/efs EFS_SECURITYGROUPS='${aws_security_group.efs.id}'",
-      "docker swarm join --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H ${aws_eip.manager.0.public_ip}:2376 swarm join-token -q worker) ${aws_eip.manager.0.public_ip}:2377",
+      "docker swarm join --advertise-addr ${aws_instance.worker.*.private_ip} --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H ${aws_eip.manager.0.public_ip}:2376 swarm join-token -q worker) ${aws_eip.manager.0.public_ip}:2377",
       "update-ssh-keys -u root -d core-ignition || /bin/true",
       "rm /root/.ssh/authorized_keys"
     ]
