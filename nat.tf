@@ -13,9 +13,9 @@ resource "aws_eip" "nat" {
   count = "${length(var.aws_availability_zones)}"
   vpc = true
   depends_on = ["aws_internet_gateway.gw"]
-  lifecycle {
-    prevent_destroy = true
-  }
+//  lifecycle {
+//    prevent_destroy = true
+//  }
   tags {
     Name = "public nat ip ${count.index + 1}"
   }

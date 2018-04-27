@@ -74,9 +74,9 @@ resource "aws_security_group" "efs" {
     security_groups = ["${aws_security_group.swarm.id}"]
     description = "EFS mounts"
   }
-  lifecycle {
-    prevent_destroy = true
-  }
+//  lifecycle {
+//    prevent_destroy = true
+//  }
   tags {
     Name = "efs"
   }

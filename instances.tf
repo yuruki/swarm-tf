@@ -2,9 +2,9 @@ resource "aws_eip" "manager" {
   count = "${var.manager_count}"
   vpc = true
   depends_on = ["aws_internet_gateway.gw"]
-  lifecycle {
-    prevent_destroy = true
-  }
+//  lifecycle {
+//    prevent_destroy = true
+//  }
   tags {
     Name = "manager-${count.index}"
   }
@@ -67,7 +67,7 @@ resource "aws_instance" "manager" {
   }
   provisioner "remote-exec" {
     inline = [
-      "${count.index == 0 ? format("docker swarm init --advertise-addr eth0") : format("docker swarm join --advertise-addr eth0 --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H %s:2376 swarm join-token -q manager) %s:2377", aws_instance.manager.0.private_ip, aws_instance.manager.0.private_ip)}"
+      "${count.index == 0 ? format("docker swarm init --advertise-addr eth0") : format("docker swarm join --advertise-addr eth0 --token $(docker --tlsverify --tlscacert=/opt/docker-tls/ca.pem --tlscert=/opt/docker-tls/client-cert.pem --tlskey=/opt/docker-tls/client-key.pem -H %s:2376 swarm join-token -q manager) %s:2377", aws_eip.manager.0.public_ip, aws_instance.manager.0.private_ip)}"
     ]
   }
   tags {
